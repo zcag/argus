@@ -1,8 +1,11 @@
-import { chromium } from 'playwright-core'
+import { chromium, errors } from 'playwright-core'
 import type { Browser, Page } from 'playwright-core'
 import { config } from './config.ts'
-import type { Watch } from './db.ts'
+import { preCaptureSteps } from './db.ts'
+import type { PreCaptureStep, Watch } from './db.ts'
 import type { Capture } from './capture.ts'
+
+const CLICK_TIMEOUT_MS = 5000
 
 let browser: Browser | null = null
 let pending: Promise<Browser> | null = null
@@ -63,6 +66,7 @@ export async function renderPage(
     await page.addStyleTag({ content: STABILISE_CSS }).catch(() => {})
     if (watch.wait_ms > 0) await page.waitForTimeout(watch.wait_ms)
     await settle(page)
+    await runPreCaptureSteps(page, watch.pre_capture_steps)
 
     const html = await page.content()
     const finalUrl = page.url()
@@ -78,6 +82,28 @@ export async function renderPage(
     return { html, finalUrl, screenshot }
   } finally {
     await context.close().catch(() => {})
+  }
+}
+
+async function runPreCaptureSteps(page: Page, raw: string | null) {
+  for (const step of preCaptureSteps(raw)) {
+    await runClickStep(page, step)
+    await settle(page)
+  }
+}
+
+async function runClickStep(page: Page, step: PreCaptureStep) {
+  const locator = page.locator(step.selector).first()
+  try {
+    if (!(await locator.count())) {
+      console.warn(`[render] click step matched nothing: ${step.selector}`)
+      return
+    }
+    await locator.click({ timeout: CLICK_TIMEOUT_MS })
+  } catch (e) {
+    if (!(e instanceof errors.TimeoutError))
+      throw new Error(`click step failed for "${step.selector}": ${(e as Error).message}`)
+    console.warn(`[render] click step found nothing clickable: ${step.selector}`)
   }
 }
 

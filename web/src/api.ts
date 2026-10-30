@@ -1,5 +1,27 @@
 export type WatchMode = 'text' | 'element' | 'visual'
 
+export type PreCaptureStep = {
+  type: 'click'
+  selector: string
+}
+
+export function parsePreCaptureSteps(raw: string | null | undefined): PreCaptureStep[] {
+  if (!raw) return []
+  try {
+    const value: unknown = JSON.parse(raw)
+    if (!Array.isArray(value)) return []
+    return value.filter(
+      (step): step is PreCaptureStep =>
+        !!step &&
+        typeof step === 'object' &&
+        (step as { type?: unknown }).type === 'click' &&
+        typeof (step as { selector?: unknown }).selector === 'string',
+    )
+  } catch {
+    return []
+  }
+}
+
 export type Watch = {
   notify_channels: string | null
   id: number
@@ -31,6 +53,7 @@ export type Watch = {
   ticks: string | null
   preview?: string | null
   running?: boolean
+  pre_capture_steps: string | null
 }
 
 export type Check = {
@@ -104,7 +127,13 @@ export const api = {
   remove: (id: number) => req<{ ok: true }>(`/api/watches/${id}`, { method: 'DELETE' }),
   runCheck: (id: number) => req<Check>(`/api/watches/${id}/check`, { method: 'POST' }),
   check: (id: number) => req<CheckDetail>(`/api/checks/${id}`),
-  preview: (body: { url: string; selector?: string; render?: boolean; mode?: WatchMode }) =>
+  preview: (body: {
+    url: string
+    selector?: string
+    render?: boolean
+    mode?: WatchMode
+    pre_capture_steps?: PreCaptureStep[] | null
+  }) =>
     req<Preview>('/api/preview', { method: 'POST', body: JSON.stringify(body) }),
   settings: () => req<AllSettings>('/api/settings'),
   saveSettings: (body: AllSettings) =>

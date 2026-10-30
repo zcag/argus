@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import type { FastifyInstance } from 'fastify'
-import { all, get, run, bind } from './db.ts'
-import type { Check, Watch } from './db.ts'
+import { all, get, run, bind, preCaptureSteps } from './db.ts'
+import type { Check, PreCaptureStep, Watch } from './db.ts'
 import { config } from './config.ts'
 import { abs, readText, removeWatchDir } from './storage.ts'
 import { checkNow, isRunning } from './scheduler.ts'
@@ -31,15 +31,27 @@ const WRITABLE = [
   'notify_channels',
   'headers',
   'wait_ms',
+  'pre_capture_steps',
 ] as const
 
 /** Arrays/objects arrive as JSON values from the UI but are stored as text. */
 const packed = (key: string, value: unknown) =>
-  ['ignore_selectors', 'ignore_regex', 'headers', 'notify_channels'].includes(key) &&
+  ['ignore_selectors', 'ignore_regex', 'headers', 'notify_channels', 'pre_capture_steps'].includes(key) &&
   value !== null &&
   typeof value === 'object'
     ? JSON.stringify(value)
     : bind(value)
+
+function stepsError(body: Record<string, unknown>): string | null {
+  if (!('pre_capture_steps' in body)) return null
+  try {
+    const steps = preCaptureSteps(body.pre_capture_steps)
+    body.pre_capture_steps = steps.length ? steps : null
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+}
 
 const LIST_SQL = `
   select w.*,
@@ -80,6 +92,8 @@ export function routes(app: FastifyInstance) {
     const body = req.body as Record<string, unknown>
     if (!body?.url || typeof body.url !== 'string') return reply.code(400).send({ error: 'url required' })
     body.url = normalizeUrl(body.url)
+    const badSteps = stepsError(body)
+    if (badSteps) return reply.code(400).send({ error: badSteps })
 
     let name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : ''
     if (!name) name = await deriveName(body.url)
@@ -103,6 +117,8 @@ export function routes(app: FastifyInstance) {
     const id = Number((req.params as { id: string }).id)
     if (!get('select id from watches where id=?', id)) return reply.code(404).send({ error: 'not found' })
     const body = (req.body ?? {}) as Record<string, unknown>
+    const badSteps = stepsError(body)
+    if (badSteps) return reply.code(400).send({ error: badSteps })
 
     const sets: string[] = []
     const vals: unknown[] = []
@@ -207,19 +223,27 @@ export function routes(app: FastifyInstance) {
 
   /** Preview a URL before saving it as a watch — powers the add page. */
   app.post('/api/preview', async (req, reply) => {
-    const { url, selector, render, mode } = (req.body ?? {}) as {
+    const { url, selector, render, mode, pre_capture_steps } = (req.body ?? {}) as {
       url?: string
       selector?: string
       render?: boolean
       mode?: string
+      pre_capture_steps?: unknown
     }
     if (!url) return reply.code(400).send({ error: 'url required' })
+    let steps: PreCaptureStep[]
+    try {
+      steps = preCaptureSteps(pre_capture_steps)
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message })
+    }
     try {
       return await makePreview({
         url: normalizeUrl(url),
         render: !!render || mode === 'visual',
         selector,
         wantShot: mode === 'visual',
+        preCaptureSteps: steps,
       })
     } catch (e) {
       return reply.code(422).send({ error: (e as Error).message })
@@ -238,18 +262,30 @@ export function routes(app: FastifyInstance) {
    * picker needs the post-JS DOM, since that's the page a human would click on.
    */
   app.get('/api/pick', async (req, reply) => {
-    const raw = (req.query as { url?: string }).url
+    const query = req.query as { url?: string; pre_capture_steps?: string }
+    const raw = query.url
     if (!raw) return reply.code(400).send({ error: 'url required' })
     const url = normalizeUrl(raw)
+    let steps: string | null
+    try {
+      const parsed = preCaptureSteps(query.pre_capture_steps)
+      steps = parsed.length ? JSON.stringify(parsed) : null
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message })
+    }
     try {
       let html: string
       let finalUrl = url
       try {
         const { renderPage } = await import('./render.ts')
-        const out = await renderPage({ url, selector: null, headers: null, wait_ms: 0 } as Watch, {})
+        const out = await renderPage(
+          { url, selector: null, headers: null, wait_ms: 0, pre_capture_steps: steps } as Watch,
+          {},
+        )
         html = out.html
         finalUrl = out.finalUrl
-      } catch {
+      } catch (e) {
+        if (steps) throw e
         // No browser available — a static fetch still beats failing outright.
         const out = await httpFetch(url)
         html = out.html

@@ -82,6 +82,22 @@ framework-generated (`ember-`, `react-`, `:r`). Those look unique and are worthl
 Hacker News story row carries a numeric `id` that changes on the next render, so a
 selector anchored to one silently breaks on the very next check.
 
+### Preparing a page before capture
+
+A watch can click things before argus extracts text or takes a screenshot, which is
+how you get past a cookie or consent popup that covers the watched content. Add the
+clicks from the add page or the watch's settings and pick each element on the page;
+they run in order, each on the page as the previous one left it.
+
+Watches with clicks always load in a browser, including text and element watches, so
+they cost more than a plain HTTP fetch. A click that finds nothing to click (the popup
+didn't show this time) is skipped with a warning instead of failing the check.
+
+A click does whatever the page does with it: a link navigates and the capture is of
+wherever it lands, and with a `Cookie` header it clicks as you on every check, so pick
+dismiss buttons, not actions. Controls inside iframes, typing, and login flows aren't
+supported yet.
+
 ## Notifications
 
 <img src="docs/notification-email.png" alt="An argus notification email showing a what-moved table and the diff" width="620">
@@ -198,7 +214,8 @@ advisory:
 ## Not built yet
 
 Semantic/LLM change summaries, multi-user and sharing, browser steps for multi-step
-logins, RSS/JSON watch types, and region-level ignore masks for visual mode.
+logins (typing, beyond the clicks above), RSS/JSON watch types, and region-level
+ignore masks for visual mode.
 
 ## Licence
 

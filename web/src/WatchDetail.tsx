@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, clock, humanInterval, pct, until } from './api'
+import { api, clock, humanInterval, parsePreCaptureSteps, pct, until } from './api'
 import type { CheckDetail, WatchDetail as WatchDetailData } from './api'
 import { VigilStrip, tickOf } from './components/VigilStrip'
 import { VisualCompare } from './components/VisualCompare'
@@ -21,7 +21,7 @@ export function WatchDetail() {
   const [rail, setRail] = useState<'history' | 'settings'>('history')
   const [view, setView] = useState<'visual' | 'text'>('visual')
   const [busy, setBusy] = useState(false)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState<'target' | 'pre-capture' | null>(null)
 
   const load = useCallback(
     async (select?: number) => {
@@ -281,7 +281,8 @@ export function WatchDetail() {
                 watch={data}
                 suggestions={data.suggestions}
                 onChange={patch}
-                onPickSelector={() => setPicking(true)}
+                onPickSelector={() => setPicking('target')}
+                onAddAction={() => setPicking('pre-capture')}
               />
             )}
           </div>
@@ -291,12 +292,19 @@ export function WatchDetail() {
       {picking && (
         <SelectorPicker
           url={data.url}
-          render={!!data.render}
-          current={data.selector}
-          onClose={() => setPicking(false)}
+          render={!!data.render || !!data.pre_capture_steps}
+          current={picking === 'target' ? data.selector : null}
+          purpose={picking}
+          preCaptureSteps={data.pre_capture_steps}
+          onClose={() => setPicking(null)}
           onPick={async (sel) => {
-            setPicking(false)
-            await patch({ selector: sel })
+            setPicking(null)
+            if (picking === 'target') {
+              await patch({ selector: sel })
+            } else {
+              const steps = parsePreCaptureSteps(data.pre_capture_steps)
+              await patch({ pre_capture_steps: [...steps, { type: 'click', selector: sel }] })
+            }
           }}
         />
       )}

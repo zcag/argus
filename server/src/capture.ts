@@ -16,7 +16,7 @@ export async function capture(watch: Watch): Promise<Capture> {
   const headers = watch.headers ? safeJson(watch.headers) : undefined
   const wantsShot = watch.mode === 'visual'
 
-  if (watch.render || wantsShot) {
+  if (watch.render || wantsShot || watch.pre_capture_steps) {
     const { renderPage } = await import('./render.ts')
     return renderPage(watch, { screenshot: wantsShot })
   }

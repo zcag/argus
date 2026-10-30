@@ -5,6 +5,11 @@ import { config } from './config.ts'
 
 export type WatchMode = 'text' | 'element' | 'visual'
 
+export type PreCaptureStep = {
+  type: 'click'
+  selector: string
+}
+
 export type Watch = {
   id: number
   name: string
@@ -29,6 +34,7 @@ export type Watch = {
   last_error: string | null
   consecutive_failures: number
   created_at: number
+  pre_capture_steps: string | null
 }
 
 export type Check = {
@@ -97,6 +103,7 @@ const migrations = [
   create table settings (key text primary key, value text not null);
   alter table watches add column notify_channels text;
   `,
+  `alter table watches add column pre_capture_steps text;`,
 ]
 
 mkdirSync(dirname(config.dbPath), { recursive: true })
@@ -135,4 +142,15 @@ export const jsonArray = (s: string | null): string[] => {
   } catch {
     return []
   }
+}
+
+export const preCaptureSteps = (v: unknown): PreCaptureStep[] => {
+  if (v === null || v === undefined || v === '') return []
+  const steps = typeof v === 'string' ? JSON.parse(v) : v
+  if (!Array.isArray(steps)) throw new Error('pre_capture_steps must be an array')
+  return steps.map((s) => {
+    if (s?.type !== 'click') throw new Error(`unsupported pre-capture step: ${s?.type}`)
+    if (typeof s.selector !== 'string' || !s.selector.trim()) throw new Error('a click step needs a selector')
+    return { type: 'click', selector: s.selector.trim() }
+  })
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, host, previewShotUrl } from './api'
-import type { Preview, WatchMode } from './api'
+import type { Preview, WatchMode, PreCaptureStep } from './api'
 import { SelectorPicker } from './components/SelectorPicker'
 import { ModeGlyph, MODE_LABEL, MODE_BLURB } from './components/ModeGlyph'
 import { Mark } from './components/Mark'
@@ -36,6 +36,9 @@ export function AddWatch() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [pickingPurpose, setPickingPurpose] = useState<'target' | 'pre-capture'>('target')
+  const [preCaptureSteps, setPreCaptureSteps] = useState<PreCaptureStep[]>([])
+  const effectiveRender = render || mode === 'visual' || preCaptureSteps.length > 0
   const read = useRef(false)
 
   const runPreview = useCallback(
@@ -49,7 +52,8 @@ export function AddWatch() {
           url: target,
           mode: over?.mode ?? mode,
           selector: over?.selector ?? selector,
-          render: over?.render ?? render,
+          render: over?.render ?? effectiveRender,
+          pre_capture_steps: preCaptureSteps.length ? preCaptureSteps : null,
         })
         setPreview(p)
         read.current = true
@@ -61,7 +65,7 @@ export function AddWatch() {
         setLoading(false)
       }
     },
-    [url, mode, selector, render, name],
+    [url, mode, selector, effectiveRender, name, preCaptureSteps],
   )
 
   // Once the page has been read, changing what's compared re-previews on its own.
@@ -70,7 +74,7 @@ export function AddWatch() {
     const t = setTimeout(() => void runPreview(), 350)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selector, render])
+  }, [mode, selector, render, preCaptureSteps])
 
   const create = async () => {
     setSaving(true)
@@ -86,6 +90,7 @@ export function AddWatch() {
         wait_ms: waitMs,
         min_change_pct: minChangePct,
         notify_stream: stream || null,
+        pre_capture_steps: preCaptureSteps.length ? preCaptureSteps : null,
       })
       navigate(`/w/${watch.id}`)
     } catch (e) {
@@ -95,7 +100,6 @@ export function AddWatch() {
   }
 
   const canSave = !!url.trim() && read.current && (mode !== 'element' || !!selector.trim())
-
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-ground/90 px-5 py-3 backdrop-blur">
@@ -179,7 +183,10 @@ export function AddWatch() {
                   />
                   <button
                     className="btn shrink-0"
-                    onClick={() => setPicking(true)}
+                    onClick={() => {
+                      setPickingPurpose('target')
+                      setPicking(true)
+                    }}
                     disabled={!url.trim()}
                     title="Open the page and click the element"
                   >
@@ -192,6 +199,63 @@ export function AddWatch() {
                   </p>
                 )}
               </div>
+            )}
+            <div className="mt-3 flex items-center gap-2 text-xs text-dim">
+              <details className="relative">
+                <summary
+                  className={`btn shrink-0 list-none px-2 py-1 ${
+                    !url.trim() ? 'pointer-events-none opacity-50' : ''
+                  }`}
+                >
+                  Add action before capture
+                </summary>
+                <div className="panel absolute bottom-full left-0 z-10 mb-1 min-w-48 p-1 shadow-lg">
+                  <button
+                    className="btn-ghost btn w-full justify-start px-2 py-1.5 text-xs"
+                    onClick={(e) => {
+                      e.currentTarget.closest('details')?.removeAttribute('open')
+                      setPickingPurpose('pre-capture')
+                      setPicking(true)
+                    }}
+                    disabled={!url.trim()}
+                  >
+                    Click an element
+                  </button>
+                </div>
+              </details>
+              {preCaptureSteps.length > 0 && (
+                <span className="text-faint">
+                  {preCaptureSteps.length} action{preCaptureSteps.length === 1 ? '' : 's'} configured
+                </span>
+              )}
+            </div>
+            {preCaptureSteps.length > 0 && (
+              <ol className="mt-2 space-y-1 text-xs text-dim">
+                {preCaptureSteps.map((step, index) => (
+                  <li key={`${step.selector}-${index}`} className="flex items-center gap-2">
+                    <span className="lbl w-4">{index + 1}</span>
+                    <span className="shrink-0 text-dim">Click</span>
+                    <input
+                      className="field min-w-0 flex-1 font-mono text-[13px]"
+                      value={step.selector}
+                      aria-label={`Selector for pre-capture action ${index + 1}`}
+                      onChange={(e) =>
+                        setPreCaptureSteps((steps) =>
+                          steps.map((current, i) =>
+                            i === index ? { ...current, selector: e.target.value } : current,
+                          ),
+                        )
+                      }
+                    />
+                    <button
+                      className="btn ml-auto shrink-0 px-2 py-0.5"
+                      onClick={() => setPreCaptureSteps((steps) => steps.filter((_, i) => i !== index))}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ol>
             )}
           </Step>
 
@@ -225,8 +289,8 @@ export function AddWatch() {
             <label className="mt-3 flex items-start gap-2 text-xs text-dim">
               <input
                 type="checkbox"
-                checked={render || mode === 'visual'}
-                disabled={mode === 'visual'}
+                checked={effectiveRender}
+                disabled={mode === 'visual' || preCaptureSteps.length > 0}
                 onChange={(e) => setRender(e.target.checked)}
                 className="mt-0.5 accent-[var(--color-change)]"
               />
@@ -305,7 +369,9 @@ export function AddWatch() {
             </div>
           </details>
 
-          {read.current && <Summary {...{ url, mode, selector, interval, stream, minChangePct }} />}
+          {read.current && (
+            <Summary {...{ url, mode, selector, interval, stream, minChangePct, preCaptureSteps }} />
+          )}
         </div>
 
         {/* ---- preview ---- */}
@@ -376,13 +442,20 @@ export function AddWatch() {
       {picking && (
         <SelectorPicker
           url={url.trim()}
-          render={render || mode === 'visual'}
-          current={selector || null}
+          render={effectiveRender}
+          current={pickingPurpose === 'target' ? selector || null : null}
+          purpose={pickingPurpose}
+          preCaptureSteps={preCaptureSteps.length ? JSON.stringify(preCaptureSteps) : null}
           onClose={() => setPicking(false)}
           onPick={(sel) => {
-            setPicking(false)
-            setSelector(sel)
-            if (mode === 'text') setMode('element')
+            if (pickingPurpose === 'pre-capture') {
+              setPreCaptureSteps((steps) => [...steps, { type: 'click', selector: sel }])
+              setPicking(false)
+            } else {
+              setPicking(false)
+              setSelector(sel)
+              if (mode === 'text') setMode('element')
+            }
           }}
         />
       )}
@@ -437,6 +510,7 @@ function Summary({
   interval,
   stream,
   minChangePct,
+  preCaptureSteps,
 }: {
   url: string
   mode: WatchMode
@@ -444,6 +518,7 @@ function Summary({
   interval: number
   stream: string
   minChangePct: number
+  preCaptureSteps: PreCaptureStep[]
 }) {
   const what =
     mode === 'visual'
@@ -464,6 +539,11 @@ function Summary({
           changes you get a notification
           {stream && <span className="text-ink"> on {stream}</span>}.
         </p>
+        {preCaptureSteps.length > 0 && (
+          <p className="text-faint text-[12px]">
+            Before comparing, argus runs the {preCaptureSteps.length === 1 ? 'click' : `${preCaptureSteps.length} clicks`} you set up.
+          </p>
+        )}
         {minChangePct > 0 && (
           <p className="text-faint text-[12px]">
             Changes smaller than {minChangePct}% are recorded but not announced.

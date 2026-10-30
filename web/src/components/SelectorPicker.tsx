@@ -6,12 +6,16 @@ export function SelectorPicker({
   url,
   render,
   current,
+  purpose,
+  preCaptureSteps,
   onPick,
   onClose,
 }: {
   url: string
   render: boolean
   current: string | null
+  purpose: 'target' | 'pre-capture'
+  preCaptureSteps: string | null
   onPick: (selector: string) => void
   onClose: () => void
 }) {
@@ -39,9 +43,15 @@ export function SelectorPicker({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ground/95 backdrop-blur-sm">
       <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
-        <h2 className="font-mono text-xs tracking-[0.16em] uppercase">Pick an element</h2>
+        <h2 className="font-mono text-xs tracking-[0.16em] uppercase">
+          {purpose === 'pre-capture' ? 'Pick a button to click first' : 'Pick an element to watch'}
+        </h2>
         <p className="text-xs text-dim">
-          {picked ? 'Click another element to change your choice.' : 'Move over the page and click the part you want to watch.'}
+          {picked
+            ? 'Click another element to change your choice.'
+            : purpose === 'pre-capture'
+              ? 'Choose the element argus should click before capture.'
+              : 'Move over the page and click the part you want to watch.'}
         </p>
         <button className="btn-ghost btn ml-auto px-2 py-1 text-xs" onClick={onClose}>
           Esc
@@ -56,7 +66,9 @@ export function SelectorPicker({
         )}
         <iframe
           title="Element picker"
-          src={`/api/pick?url=${encodeURIComponent(url)}${render ? '&render=1' : ''}`}
+          src={`/api/pick?url=${encodeURIComponent(url)}${render ? '&render=1' : ''}${
+            preCaptureSteps ? `&pre_capture_steps=${encodeURIComponent(preCaptureSteps)}` : ''
+          }`}
           className="h-full w-full border-0"
           sandbox="allow-same-origin allow-scripts"
           onLoad={() => setLoading(false)}
@@ -80,7 +92,7 @@ export function SelectorPicker({
             disabled={!picked}
             onClick={() => picked && onPick(picked.selector)}
           >
-            Use this element
+            {purpose === 'pre-capture' ? 'Click this first' : 'Use this element'}
           </button>
         </div>
       </footer>

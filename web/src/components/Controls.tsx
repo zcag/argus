@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, humanInterval, parseList } from '../api'
+import { api, humanInterval, parseList, parsePreCaptureSteps } from '../api'
 import type { ChannelId, Suggestion, Watch, WatchMode } from '../api'
 import { ModeGlyph, MODE_LABEL, MODE_BLURB } from './ModeGlyph'
 
@@ -21,14 +21,17 @@ export function Controls({
   suggestions,
   onChange,
   onPickSelector,
+  onAddAction,
 }: {
   watch: Watch
   suggestions: Suggestion[]
   onChange: (patch: Record<string, unknown>) => void
   onPickSelector: () => void
+  onAddAction: () => void
 }) {
   const ignoreSelectors = parseList(watch.ignore_selectors)
   const ignoreRegex = parseList(watch.ignore_regex)
+  const actions = parsePreCaptureSteps(watch.pre_capture_steps)
 
   const [enabled, setEnabled] = useState<ChannelId[]>([])
   useEffect(() => {
@@ -91,6 +94,45 @@ export function Controls({
         </Row>
       </Section>
 
+      <Section title="Actions before capture">
+        <p className="mb-3 text-[12px] text-dim">
+          These actions run in order before each check. Actions require browser-backed capture.
+        </p>
+        {actions.length > 0 && (
+          <ol className="mb-3 space-y-2">
+            {actions.map((action, index) => (
+              <li key={`${action.selector}-${index}`} className="flex items-center gap-2">
+                <span className="lbl w-4 shrink-0">{index + 1}</span>
+                <span className="shrink-0 text-[12px] text-dim">Click</span>
+                <Text
+                  value={action.selector}
+                  mono
+                  onCommit={(selector) => {
+                    const next = selector.trim()
+                      ? actions.map((current, i) => (i === index ? { ...current, selector } : current))
+                      : actions.filter((_, i) => i !== index)
+                    onChange({ pre_capture_steps: next })
+                  }}
+                />
+                <button
+                  className="btn shrink-0 px-2 py-1 text-xs"
+                  onClick={() =>
+                    onChange({
+                      pre_capture_steps: actions.filter((_, actionIndex) => actionIndex !== index),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+        <button className="btn" onClick={onAddAction}>
+          Add click action
+        </button>
+      </Section>
+
       <Section title="Schedule">
         <Row label="Check every">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -118,10 +160,18 @@ export function Controls({
         </Row>
         <Row label="Load with a browser" hint="Needed for pages that build their content in JavaScript.">
           <Toggle
-            on={!!watch.render || watch.mode === 'visual'}
-            disabled={watch.mode === 'visual'}
+            on={!!watch.render || watch.mode === 'visual' || actions.length > 0}
+            disabled={watch.mode === 'visual' || actions.length > 0}
             onToggle={(v) => onChange({ render: v ? 1 : 0 })}
-            label={watch.mode === 'visual' ? 'Always on for visual watches' : watch.render ? 'On' : 'Off'}
+            label={
+              watch.mode === 'visual'
+                ? 'Always on for visual watches'
+                : actions.length > 0
+                  ? 'Always on for watches with actions'
+                  : watch.render
+                    ? 'On'
+                    : 'Off'
+            }
           />
         </Row>
         <Row label="Settle delay" hint="Extra wait after load, for slow widgets.">
