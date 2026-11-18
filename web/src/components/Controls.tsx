@@ -22,12 +22,14 @@ export function Controls({
   onChange,
   onPickSelector,
   onAddAction,
+  onPickIgnore,
 }: {
   watch: Watch
   suggestions: Suggestion[]
   onChange: (patch: Record<string, unknown>) => void
   onPickSelector: () => void
   onAddAction: () => void
+  onPickIgnore: () => void
 }) {
   const ignoreSelectors = parseList(watch.ignore_selectors)
   const ignoreRegex = parseList(watch.ignore_regex)
@@ -229,6 +231,8 @@ export function Controls({
             items={ignoreSelectors}
             placeholder=".ads, #carousel"
             onChange={(v) => onChange({ ignore_selectors: v })}
+            pickable
+            onPick={onPickIgnore}
           />
         </Row>
       </Section>
@@ -454,10 +458,14 @@ function ListEditor({
   items,
   onChange,
   placeholder,
+  pickable = false,
+  onPick,
 }: {
   items: string[]
   onChange: (v: string[]) => void
   placeholder: string
+  pickable?: boolean
+  onPick?: () => void
 }) {
   const [draft, setDraft] = useState('')
 
@@ -485,6 +493,11 @@ function ListEditor({
         </div>
       ))}
       <div className="flex gap-1.5">
+        {pickable && (
+          <button type="button" className="btn shrink-0" onClick={onPick}>
+            Pick
+          </button>
+        )}
         <input
           className="field font-mono text-[12px]"
           value={draft}

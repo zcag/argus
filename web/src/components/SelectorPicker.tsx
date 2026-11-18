@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 type Message = { source: 'argus-picker'; type: 'hover' | 'pick'; selector: string; text: string }
+export type PickerPurpose = 'target' | 'pre-capture' | 'ignore'
 
 export function SelectorPicker({
   url,
@@ -14,7 +15,7 @@ export function SelectorPicker({
   url: string
   render: boolean
   current: string | null
-  purpose: 'target' | 'pre-capture'
+  purpose: PickerPurpose
   preCaptureSteps: string | null
   onPick: (selector: string) => void
   onClose: () => void
