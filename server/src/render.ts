@@ -1,5 +1,5 @@
 import { chromium, errors } from 'playwright-core'
-import type { Browser, Page } from 'playwright-core'
+import type { Browser, Locator, Page } from 'playwright-core'
 import { config } from './config.ts'
 import { preCaptureSteps } from './db.ts'
 import type { PreCaptureStep, Watch } from './db.ts'
@@ -48,7 +48,7 @@ export async function closeBrowser() {
 
 export async function renderPage(
   watch: Watch,
-  opts: { screenshot?: boolean } = {},
+  opts: { screenshot?: boolean, ignore_selectors?: string[] } = {},
 ): Promise<Capture> {
   const b = await getBrowser()
   const context = await b.newContext({
@@ -73,11 +73,13 @@ export async function renderPage(
     if (!opts.screenshot) return { html, finalUrl }
 
     const target = watch.selector ? page.locator(watch.selector).first() : page
+    const ignoreLocators: Locator[] = opts.ignore_selectors?.map((i) => page.locator(i)) ?? []
     const screenshot = await target.screenshot({
       type: 'png',
       ...(watch.selector ? {} : { fullPage: true }),
       animations: 'disabled',
       caret: 'hide',
+      mask: ignoreLocators,
     })
     return { html, finalUrl, screenshot }
   } finally {
