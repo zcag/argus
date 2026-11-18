@@ -1,5 +1,5 @@
 import { httpFetch } from './fetch.ts'
-import type { Watch } from './db.ts'
+import { jsonArray, type Watch } from './db.ts'
 
 export type Capture = {
   html: string
@@ -18,7 +18,7 @@ export async function capture(watch: Watch): Promise<Capture> {
 
   if (watch.render || wantsShot || watch.pre_capture_steps) {
     const { renderPage } = await import('./render.ts')
-    return renderPage(watch, { screenshot: wantsShot })
+    return renderPage(watch, { screenshot: wantsShot, ignore_selectors: jsonArray(watch.ignore_selectors) })
   }
 
   const res = await httpFetch(watch.url, { headers })
