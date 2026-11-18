@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, clock, humanInterval, parsePreCaptureSteps, pct, until } from './api'
+import { api, clock, humanInterval, parseList, parsePreCaptureSteps, pct, until } from './api'
 import type { CheckDetail, WatchDetail as WatchDetailData } from './api'
 import { VigilStrip, tickOf } from './components/VigilStrip'
 import { VisualCompare } from './components/VisualCompare'
 import { TextDiff } from './components/TextDiff'
 import { Controls } from './components/Controls'
-import { SelectorPicker } from './components/SelectorPicker'
+import { SelectorPicker, type PickerPurpose } from './components/SelectorPicker'
 import { ModeGlyph } from './components/ModeGlyph'
 import { Mark } from './components/Mark'
 
@@ -21,7 +21,7 @@ export function WatchDetail() {
   const [rail, setRail] = useState<'history' | 'settings'>('history')
   const [view, setView] = useState<'visual' | 'text'>('visual')
   const [busy, setBusy] = useState(false)
-  const [picking, setPicking] = useState<'target' | 'pre-capture' | null>(null)
+  const [picking, setPicking] = useState<PickerPurpose | null>(null)
 
   const load = useCallback(
     async (select?: number) => {
@@ -283,6 +283,7 @@ export function WatchDetail() {
                 onChange={patch}
                 onPickSelector={() => setPicking('target')}
                 onAddAction={() => setPicking('pre-capture')}
+                onPickIgnore={() => setPicking('ignore')}
               />
             )}
           </div>
@@ -299,11 +300,16 @@ export function WatchDetail() {
           onClose={() => setPicking(null)}
           onPick={async (sel) => {
             setPicking(null)
-            if (picking === 'target') {
-              await patch({ selector: sel })
-            } else {
-              const steps = parsePreCaptureSteps(data.pre_capture_steps)
-              await patch({ pre_capture_steps: [...steps, { type: 'click', selector: sel }] })
+            switch (picking) {
+              case 'target':
+                await patch({ selector: sel })
+                break
+              case 'pre-capture':
+                await patch({ pre_capture_steps: [...parsePreCaptureSteps(data.pre_capture_steps), { type: 'click', selector: sel }] })
+                break
+              case 'ignore':
+                await patch({ ignore_selectors: [...parseList(data.ignore_selectors), sel] })
+                break
             }
           }}
         />

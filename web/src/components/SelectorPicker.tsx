@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react'
 
 type Message = { source: 'argus-picker'; type: 'hover' | 'pick'; selector: string; text: string }
+export type PickerPurpose = 'target' | 'pre-capture' | 'ignore'
+
+const purposeText = {
+  target: {
+    title: 'Pick an element to watch',
+    description: 'Move over the page and click the part you want to watch.',
+    confirm: 'Use this element',
+  },
+  'pre-capture': {
+    title: 'Pick an element to click first',
+    description: 'Choose the element argus should click before capture.',
+    confirm: 'Click this first',
+  },
+  ignore: {
+    title: 'Pick an element to ignore',
+    description: 'Choose the element argus should ignore when capturing.',
+    confirm: 'Ignore this element',
+  },
+} satisfies Record<PickerPurpose, { title: string; description: string; confirm: string }>
 
 export function SelectorPicker({
   url,
@@ -14,7 +33,7 @@ export function SelectorPicker({
   url: string
   render: boolean
   current: string | null
-  purpose: 'target' | 'pre-capture'
+  purpose: PickerPurpose
   preCaptureSteps: string | null
   onPick: (selector: string) => void
   onClose: () => void
@@ -39,20 +58,18 @@ export function SelectorPicker({
   }, [onClose])
 
   const shown = picked ?? hover
+  const text = purposeText[purpose]
+  const secondaryText = picked
+    ? 'Click another element to change your choice.'
+    : text.description
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ground/95 backdrop-blur-sm">
       <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
         <h2 className="font-mono text-xs tracking-[0.16em] uppercase">
-          {purpose === 'pre-capture' ? 'Pick a button to click first' : 'Pick an element to watch'}
+          {text.title}
         </h2>
-        <p className="text-xs text-dim">
-          {picked
-            ? 'Click another element to change your choice.'
-            : purpose === 'pre-capture'
-              ? 'Choose the element argus should click before capture.'
-              : 'Move over the page and click the part you want to watch.'}
-        </p>
+        <p className="text-sm text-dim">{secondaryText}</p>
         <button className="btn-ghost btn ml-auto px-2 py-1 text-xs" onClick={onClose}>
           Esc
         </button>
@@ -92,7 +109,7 @@ export function SelectorPicker({
             disabled={!picked}
             onClick={() => picked && onPick(picked.selector)}
           >
-            {purpose === 'pre-capture' ? 'Click this first' : 'Use this element'}
+            {text.confirm}
           </button>
         </div>
       </footer>
