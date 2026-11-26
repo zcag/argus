@@ -1,15 +1,7 @@
 import { useRef, useState } from 'react'
 import { diffUrl, shotUrl } from '../api'
 import type { Box } from '../api'
-
-type Mode = 'overlay' | 'swipe' | 'side' | 'after'
-
-const MODES: { id: Mode; label: string; needsPrev?: boolean }[] = [
-  { id: 'overlay', label: 'Overlay' },
-  { id: 'swipe', label: 'Swipe', needsPrev: true },
-  { id: 'side', label: 'Side by side', needsPrev: true },
-  { id: 'after', label: 'Latest only' },
-]
+import { VISUAL_MODES, VisualMode } from '../../../shared/visual'
 
 export function VisualCompare({
   checkId,
