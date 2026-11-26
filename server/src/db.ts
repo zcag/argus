@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { config } from './config.ts'
+import { VisualMode } from '../../shared/visual.ts'
 
 export type WatchMode = 'text' | 'element' | 'visual'
 
@@ -35,6 +36,7 @@ export type Watch = {
   consecutive_failures: number
   created_at: number
   pre_capture_steps: string | null
+  visual_mode: VisualMode
 }
 
 export type Check = {
@@ -104,6 +106,7 @@ const migrations = [
   alter table watches add column notify_channels text;
   `,
   `alter table watches add column pre_capture_steps text;`,
+  `alter table watches add column visual_mode text not null default '${VisualMode.OVERLAY}';`,
 ]
 
 mkdirSync(dirname(config.dbPath), { recursive: true })

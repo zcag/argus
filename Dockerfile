@@ -7,6 +7,7 @@ COPY server/package.json server/
 COPY web/package.json web/
 RUN pnpm install --frozen-lockfile
 COPY web ./web
+COPY shared ./shared
 RUN pnpm --filter @argus/web build
 
 # ── runtime ───────────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ COPY web/package.json web/
 RUN pnpm install --prod --frozen-lockfile --filter @argus/server
 
 COPY server ./server
+COPY shared ./shared
 COPY --from=web /app/web/dist ./web/dist
 
 ENV NODE_ENV=production \

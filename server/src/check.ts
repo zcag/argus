@@ -45,6 +45,7 @@ export async function runCheck(watch: Watch): Promise<Check | undefined> {
     const textPath = text === null ? null : save(watch.id, checkId, 'txt', text)
     const textHash = text === null ? null : hash(text)
     const shotPath = cap.screenshot ? save(watch.id, checkId, 'png', cap.screenshot) : null
+    const prevShotPath = prev?.shot_path ?? null
 
     let changePct = 0
     let added = 0
@@ -66,8 +67,8 @@ export async function runCheck(watch: Watch): Promise<Check | undefined> {
     }
 
     let visual: { changedPct: number } | null = null
-    if (isVisual && cap.screenshot && prev?.shot_path) {
-      const before = safeRead(prev.shot_path)
+    if (isVisual && cap.screenshot && prevShotPath) {
+      const before = safeRead(prevShotPath)
       if (before) {
         const vd = visualDiff(before, cap.screenshot)
         visual = { changedPct: vd.changedPct }
@@ -113,7 +114,7 @@ export async function runCheck(watch: Watch): Promise<Check | undefined> {
     )
 
     if (changed) {
-      await notifyChange({ watch, checkId, summary, changePct, diffPath })
+      await notifyChange({ watch, checkId, summary, changePct, diffPath, shotPath, prevShotPath })
       run('update checks set notified=1 where id=?', checkId)
     }
 

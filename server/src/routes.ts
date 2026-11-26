@@ -32,6 +32,7 @@ const WRITABLE = [
   'headers',
   'wait_ms',
   'pre_capture_steps',
+  'visual_mode',
 ] as const
 
 /** Arrays/objects arrive as JSON values from the UI but are stored as text. */
