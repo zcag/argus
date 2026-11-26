@@ -1,15 +1,7 @@
 import { useRef, useState } from 'react'
 import { diffUrl, shotUrl } from '../api'
 import type { Box } from '../api'
-
-type Mode = 'overlay' | 'swipe' | 'side' | 'after'
-
-const MODES: { id: Mode; label: string; needsPrev?: boolean }[] = [
-  { id: 'overlay', label: 'Overlay' },
-  { id: 'swipe', label: 'Swipe', needsPrev: true },
-  { id: 'side', label: 'Side by side', needsPrev: true },
-  { id: 'after', label: 'Latest only' },
-]
+import { VISUAL_MODES, VisualMode } from '../../../shared/visual'
 
 export function VisualCompare({
   checkId,
@@ -24,7 +16,7 @@ export function VisualCompare({
   boxes: Box[]
   sourceWidth: number
 }) {
-  const [mode, setMode] = useState<Mode>(hasDiff ? 'overlay' : 'after')
+  const [mode, setMode] = useState<VisualMode>(hasDiff ? VisualMode.OVERLAY : VisualMode.AFTER)
   const [split, setSplit] = useState(50)
   const scrollRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -48,8 +40,8 @@ export function VisualCompare({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
         <div className="flex rounded-md border border-line bg-ground p-0.5">
-          {MODES.filter((m) => (m.needsPrev ? prevId : true))
-            .filter((m) => (m.id === 'overlay' ? hasDiff : true))
+          {VISUAL_MODES.filter((m) => (m.needsPrev ? prevId : true))
+            .filter((m) => (m.id === VisualMode.OVERLAY ? hasDiff : true))
             .map((m) => (
               <button
                 key={m.id}
@@ -83,12 +75,12 @@ export function VisualCompare({
       </div>
 
       <div ref={scrollRef} className="shot-bg min-h-0 flex-1 overflow-auto p-4">
-        {mode === 'side' && prevId ? (
+        {mode === VisualMode.SIDE && prevId ? (
           <div className="grid grid-cols-2 gap-3">
             <Framed label="Before" src={shotUrl(prevId)} />
             <Framed label="After" src={shotUrl(checkId)} />
           </div>
-        ) : mode === 'swipe' && prevId ? (
+        ) : mode === VisualMode.SWIPE && prevId ? (
           <div
             ref={frameRef}
             className="relative cursor-ew-resize touch-none overflow-hidden rounded border border-line select-none"
@@ -125,8 +117,8 @@ export function VisualCompare({
         ) : (
           <div ref={frameRef} className="overflow-hidden rounded border border-line">
             <img
-              src={mode === 'overlay' && hasDiff ? diffUrl(checkId) : shotUrl(checkId)}
-              alt={mode === 'overlay' ? 'Changed regions highlighted' : 'Latest capture'}
+              src={mode === VisualMode.OVERLAY && hasDiff ? diffUrl(checkId) : shotUrl(checkId)}
+              alt={mode === VisualMode.OVERLAY ? 'Changed regions highlighted' : 'Latest capture'}
               className="block w-full"
             />
           </div>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, humanInterval, parseList, parsePreCaptureSteps } from '../api'
 import type { ChannelId, Suggestion, Watch, WatchMode } from '../api'
 import { ModeGlyph, MODE_LABEL, MODE_BLURB } from './ModeGlyph'
+import { VISUAL_MODES, VisualMode } from '../../../shared/visual'
 
 const MODES: WatchMode[] = ['text', 'element', 'visual']
 
@@ -301,6 +302,20 @@ export function Controls({
             placeholder='{"cookie":"session=…"}'
             onCommit={(v) => onChange({ headers: v || null })}
           />
+        </Row>
+        <Row label="Image mode" hint="How to display the image in change notifications.">
+          <select
+            className="field"
+            disabled={watch.mode !== 'visual'}
+            value={watch.visual_mode}
+            onChange={(e) => onChange({ visual_mode: e.target.value || null })}
+          >
+            {VISUAL_MODES.filter((v) => v.id !== VisualMode.SWIPE).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
         </Row>
       </Section>
     </div>

@@ -1,3 +1,4 @@
+import { VisualMode } from '../../../shared/visual.ts'
 import type { Watch } from '../db.ts'
 import type { ChangeFacts } from './describe.ts'
 
@@ -77,6 +78,26 @@ function email(
     )
     .join('')
 
+  let imageHeader = ''
+  let visualImages = `<img src="cid:argusdiff-0" alt="${imageHeader}" style="display:block;width:100%;border:1px solid #e3e8ea;border-radius:6px;" />`
+  const visualMode = watch.visual_mode ?? VisualMode.OVERLAY
+  switch (visualMode) {
+    case VisualMode.SIDE:
+      imageHeader = 'Before/After.'
+      visualImages = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="width:50%;padding-right:4px;"><img src="cid:argusdiff-0" alt="Before" style="display:block;width:100%;border:1px solid #e3e8ea;border-radius:6px;" /></td><td style="width:50%;padding-left:4px;"><img src="cid:argusdiff-1" alt="After" style="display:block;width:100%;border:1px solid #e3e8ea;border-radius:6px;" /></td></tr></table>'
+      break
+    case VisualMode.AFTER:
+      imageHeader = 'Latest capture.'
+      break
+    case VisualMode.SWIPE:
+      // swipe unsupported in notifications, fallback to overlay
+    case VisualMode.OVERLAY:
+      imageHeader = 'Changed regions highlighted.'
+      break
+    default:
+      throw new Error(`Unhandled case: ${visualMode satisfies never}`)
+  }
+
   return `<!doctype html>
 <html><body style="margin:0;padding:0;background:#f4f6f7;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f7;padding:28px 12px;">
@@ -131,8 +152,8 @@ function email(
         ${
           facts.kind === 'visual'
             ? `<tr><td style="padding:18px 22px 0;">
-                 <div style="font-size:12px;color:#8a94a0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Changed regions</div>
-                 <img src="cid:argusdiff" alt="Changed regions highlighted" style="display:block;width:100%;border:1px solid #e3e8ea;border-radius:6px;" />
+                 <div style="font-size:12px;color:#8a94a0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">${imageHeader}</div>
+                 ${visualImages}
                </td></tr>`
             : ''
         }
