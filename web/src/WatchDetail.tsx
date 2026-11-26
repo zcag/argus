@@ -187,6 +187,7 @@ export function WatchDetail() {
                 <p className="p-6 font-mono text-sm text-warn">{check.error}</p>
               ) : view === 'visual' && hasVisual ? (
                 <VisualCompare
+                  watchId={watchId}
                   checkId={check.id}
                   prevId={check.has_prev_shot ? check.prev_id : null}
                   hasDiff={check.has_diff}

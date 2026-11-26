@@ -3,10 +3,10 @@ import { diffUrl, shotUrl } from '../api'
 import type { Box } from '../api'
 import { VISUAL_MODES, VisualMode } from '../../../shared/visual'
 
-const VISUAL_MODE_KEY = 'argus:visual-mode'
+const VISUAL_MODE_KEY = 'argus:visual-mode-'
 
-function getVisualMode(hasDiff: boolean, prevId: number | null): VisualMode {
-  const stored = window.localStorage.getItem(VISUAL_MODE_KEY)
+function getVisualMode(hasDiff: boolean, prevId: number | null, watchId: number): VisualMode {
+  const stored = window.localStorage.getItem(VISUAL_MODE_KEY + watchId)
   const match = VISUAL_MODES.find(
     (mode) =>
       mode.id === stored &&
@@ -17,19 +17,21 @@ function getVisualMode(hasDiff: boolean, prevId: number | null): VisualMode {
 }
 
 export function VisualCompare({
+  watchId,
   checkId,
   prevId,
   hasDiff,
   boxes,
   sourceWidth,
 }: {
+  watchId: number
   checkId: number
   prevId: number | null
   hasDiff: boolean
   boxes: Box[]
   sourceWidth: number
 }) {
-  const [mode, setMode] = useState<VisualMode>(getVisualMode(hasDiff, prevId))
+  const [mode, setMode] = useState<VisualMode>(getVisualMode(hasDiff, prevId, watchId))
   const [split, setSplit] = useState(50)
   const scrollRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -60,7 +62,7 @@ export function VisualCompare({
                 key={m.id}
                 onClick={() => {
                   setMode(m.id)
-                  window.localStorage.setItem(VISUAL_MODE_KEY, m.id)
+                  window.localStorage.setItem(VISUAL_MODE_KEY + watchId, m.id)
                 }}
                 className={`rounded px-2.5 py-1 text-xs transition-colors ${
                   mode === m.id ? 'bg-raised text-ink' : 'text-dim hover:text-ink'
