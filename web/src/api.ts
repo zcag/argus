@@ -1,3 +1,5 @@
+import type { VisualMode } from "../../shared/visual"
+
 export type WatchMode = 'text' | 'element' | 'visual'
 
 export type PreCaptureStep = {
@@ -54,6 +56,7 @@ export type Watch = {
   preview?: string | null
   running?: boolean
   pre_capture_steps: string | null
+  visual_mode?: VisualMode
 }
 
 export type Check = {
