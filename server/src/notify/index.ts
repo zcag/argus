@@ -9,6 +9,7 @@ import type { ChangeFacts } from './describe.ts'
 import { buildMessage } from './render.ts'
 import type { Message } from './render.ts'
 import { sendEmail } from './email.ts'
+import { VisualMode } from '../../../shared/visual.ts'
 
 export type ChangeEvent = {
   watch: Watch
@@ -16,13 +17,15 @@ export type ChangeEvent = {
   summary: Record<string, unknown> | null
   changePct: number
   diffPath: string | null
+  shotPath?: string | null
+  prevShotPath?: string | null
 }
 
 export async function notifyChange(ev: ChangeEvent) {
   const facts = describe(ev.summary as never, ev.changePct)
   const link = `${config.baseUrl}/w/${ev.watch.id}`
-  const msg = buildMessage(ev.watch, facts, link, new Date())
-  const image = ev.diffPath ? abs(ev.diffPath) : null
+  const msg = buildMessage(ev.watch, facts, link, new Date(), ev.watch.visual_mode)
+  const image = getNotificationImage(ev)
 
   const chosen = channelsFor(ev.watch.notify_channels)
   if (!chosen.length) return
@@ -37,21 +40,31 @@ export async function notifyChange(ev: ChangeEvent) {
   })
 }
 
+function getNotificationImage(e: ChangeEvent): string[] {
+    if (e.watch.visual_mode === VisualMode.AFTER && e.shotPath) return [abs(e.shotPath)]
+    if (e.watch.visual_mode === VisualMode.SIDE && e.shotPath && e.prevShotPath) return [abs(e.prevShotPath), abs(e.shotPath)]
+    // default notification image is overlay
+    if (e.diffPath) return [abs(e.diffPath)]
+    // fallback to single image when overlay image is missing
+    if (e.shotPath) return [abs(e.shotPath)]
+    return []
+}
+
 async function deliver(
   channel: ChannelId,
   msg: Message,
   facts: ChangeFacts,
   ev: ChangeEvent,
-  image: string | null,
+  images: string[],
 ) {
   const s = settings()
   switch (channel) {
     case 'email':
-      return sendEmail(s.email, msg, image, ev.watch.name)
+      return sendEmail(s.email, msg, images, ev.watch.name)
     case 'webhook':
       return sendWebhook(ev.watch.notify_webhook || s.webhook.url, msg, facts, ev)
     case 'command':
-      return runCommand(s.command.bin, s.command.args, msg.text, ev.watch.notify_stream, image)
+      return runCommand(s.command.bin, s.command.args, msg.text, ev.watch.notify_stream, images)
   }
 }
 
@@ -84,10 +97,10 @@ async function sendWebhook(url: string, msg: Message, facts: ChangeFacts, ev: Ch
   if (!res.ok) throw new Error(`webhook: HTTP ${res.status}`)
 }
 
-function runCommand(bin: string, args: string, body: string, stream: string | null, image: string | null) {
+function runCommand(bin: string, args: string, body: string, stream: string | null, images: string[]) {
   const argv = args.split(/\s+/).filter(Boolean)
   if (stream) argv.push('--stream', stream)
-  if (image) argv.push('--file', image)
+  for (const image of images) argv.push('--file', image)
   return new Promise<void>((resolve, reject) => {
     execFile(bin, [...argv, body], { timeout: 120_000 }, (err, _out, stderr) =>
       err ? reject(new Error(`${bin}: ${stderr.trim() || err.message}`)) : resolve(),
@@ -128,6 +141,6 @@ export async function sendTest(channel: ChannelId) {
     msg,
     facts,
     { watch, checkId: 0, summary: null, changePct: 4.2, diffPath: null },
-    null,
+    [],
   )
 }
